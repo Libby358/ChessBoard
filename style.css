@@ -5,7 +5,7 @@ body {
     min-height: 100vh;
     margin: 0;
     padding: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: antiquewhite;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -159,9 +159,15 @@ body {
 
 .piece {
     width: 100%;
+    height: 100%;
     z-index: 1;
     cursor: pointer;
     transition: all 0.2s ease;
+    font-size: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
 }
 
 .piece:hover {
@@ -171,13 +177,6 @@ body {
 
 .piece:active {
     transform: scale(0.95);
-}
-
-.piece img {
-    max-width: 100%;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
 }
 
 /* Promotion Modal */
@@ -228,17 +227,13 @@ body {
     justify-content: center;
     transition: all 0.3s ease;
     border: 2px solid transparent;
+    font-size: 48px;
 }
 
 .promotion-piece:hover {
     background: rgba(255, 255, 255, 0.3);
     transform: scale(1.1);
     border-color: rgba(255, 255, 255, 0.5);
-}
-
-.promotion-piece img {
-    width: 60px;
-    height: 60px;
 }
 
 #alert {
@@ -311,14 +306,14 @@ body {
         width: 300px;
     }
     
+    .piece {
+        font-size: 32px;
+    }
+    
     .promotion-piece {
         width: 60px;
         height: 60px;
-    }
-    
-    .promotion-piece img {
-        width: 45px;
-        height: 45px;
+        font-size: 32px;
     }
     
     #alert {
@@ -342,14 +337,14 @@ body {
         gap: 5px;
     }
     
+    .piece {
+        font-size: 24px;
+    }
+    
     .promotion-piece {
         width: 50px;
         height: 50px;
-    }
-    
-    .promotion-piece img {
-        width: 35px;
-        height: 35px;
+        font-size: 24px;
     }
 }
 
