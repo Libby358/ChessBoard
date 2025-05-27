@@ -385,6 +385,9 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
 
   updateBoardSquaresArray(startingSquareId, destinationSquareId, boardSquaresArray);
   
+  // Add this line:
+  fillBoardSquaresArray(); // Refresh the board array after DOM changes
+  
   // Check for pawn promotion
   if (pieceType === "pawn" && (destinationSquareId.charAt(1) === '8' || destinationSquareId.charAt(1) === '1')) {
     handlePawnPromotion(destinationSquareId, pieceColor);
@@ -406,7 +409,7 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
   return true;
 }
 
-fillBoardSquaresArray();
+
 
 function handleSpecialMoves(startingSquareId, destinationSquareId, pieceType, pieceColor) {
   // Handle castling
