@@ -438,10 +438,3 @@ body {
     cursor: grabbing;
 }
 
-.legal-move {
-  display: none !important;
-}
-
-.drag-over {
-  display: none !important; 
-}
