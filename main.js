@@ -74,14 +74,12 @@ function deepCopyArray(array) {
   return arrayCopy;
 }
 
-// Event listeners and setup
-document.addEventListener('DOMContentLoaded', function() {
-  setupBoardSquares();
-  setupPieces();
-  fillBoardSquaresArray();
-  setupGameControls();
-  updateTurnIndicator();
-});
+// Initialize when page loads
+setupBoardSquares();
+setupPieces();
+fillBoardSquaresArray();
+setupGameControls();
+updateTurnIndicator();
 
 function setupGameControls() {
   const newGameBtn = document.getElementById('newGameBtn');
@@ -89,17 +87,21 @@ function setupGameControls() {
   const gameModeSelect = document.getElementById('gameMode');
   const difficultySelect = document.getElementById('difficulty');
 
-  newGameBtn.addEventListener('click', startNewGame);
-  undoBtn.addEventListener('click', undoMove);
-  gameModeSelect.addEventListener('change', (e) => {
-    gameMode = e.target.value;
-    if (gameMode === "computer" && !isWhiteTurn) {
-      setTimeout(makeComputerMove, 500);
-    }
-  });
-  difficultySelect.addEventListener('change', (e) => {
-    difficulty = parseInt(e.target.value);
-  });
+  if (newGameBtn) newGameBtn.addEventListener('click', startNewGame);
+  if (undoBtn) undoBtn.addEventListener('click', undoMove);
+  if (gameModeSelect) {
+    gameModeSelect.addEventListener('change', (e) => {
+      gameMode = e.target.value;
+      if (gameMode === "computer" && !isWhiteTurn) {
+        setTimeout(makeComputerMove, 500);
+      }
+    });
+  }
+  if (difficultySelect) {
+    difficultySelect.addEventListener('change', (e) => {
+      difficulty = parseInt(e.target.value);
+    });
+  }
 }
 
 function startNewGame() {
@@ -133,6 +135,8 @@ function updateTurnIndicator() {
   const indicator = document.getElementById('turnIndicator');
   const status = document.getElementById('gameStatus');
   
+  if (!indicator) return;
+  
   if (isGameOver) {
     return;
   }
@@ -144,10 +148,12 @@ function updateTurnIndicator() {
   const currentKingSquare = isWhiteTurn ? whiteKingSquare : blackKingSquare;
   const currentColor = isWhiteTurn ? "white" : "black";
   
-  if (isKingInCheck(currentKingSquare, currentColor, boardSquaresArray)) {
-    status.textContent = `${currentColor.charAt(0).toUpperCase() + currentColor.slice(1)} is in check!`;
-  } else {
-    status.textContent = "";
+  if (status) {
+    if (isKingInCheck(currentKingSquare, currentColor, boardSquaresArray)) {
+      status.textContent = `${currentColor.charAt(0).toUpperCase() + currentColor.slice(1)} is in check!`;
+    } else {
+      status.textContent = "";
+    }
   }
 }
 
