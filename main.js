@@ -330,7 +330,7 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
   }
 
   if (!legalSquares.includes(destinationSquareId)) {
-    return false; // Make sure this actually stops execution
+    return false;
   }
 
   // Save move to history
@@ -345,13 +345,14 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
   // Handle special moves
   handleSpecialMoves(startingSquareId, destinationSquareId, pieceType, pieceColor);
 
-  // Execute the move
-  const piece = document.getElementById(pieceType + startingSquareId);
+  // Execute the move - FIX THE PIECE ID LOOKUP
+  const startingSquare = document.getElementById(startingSquareId);
   const destinationSquare = document.getElementById(destinationSquareId);
+  const piece = startingSquare.querySelector('.piece'); // Get piece from square, not by ID
   
   if (!piece || !destinationSquare) return false;
   
-  // Clear destination square of pieces (but keep coordinates)
+  // Clear destination square of pieces
   let children = destinationSquare.children;
   for (let i = children.length - 1; i >= 0; i--) {
     if (children[i].classList.contains('piece')) {
@@ -359,9 +360,10 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
     }
   }
   
+  // Move the piece
   destinationSquare.appendChild(piece);
   
-  // Update piece ID
+  // Update piece ID AFTER moving it
   piece.id = pieceType + destinationSquareId;
   
   // Update king position
@@ -385,9 +387,6 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
 
   updateBoardSquaresArray(startingSquareId, destinationSquareId, boardSquaresArray);
   
-  // Add this line:
-  fillBoardSquaresArray(); // Refresh the board array after DOM changes
-  
   // Check for pawn promotion
   if (pieceType === "pawn" && (destinationSquareId.charAt(1) === '8' || destinationSquareId.charAt(1) === '1')) {
     handlePawnPromotion(destinationSquareId, pieceColor);
@@ -408,7 +407,6 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
   
   return true;
 }
-
 
 
 function handleSpecialMoves(startingSquareId, destinationSquareId, pieceType, pieceColor) {
