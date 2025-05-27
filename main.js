@@ -680,6 +680,7 @@ function isKingInCheck(squareId,pieceColor,boardSquaresArray) {
   return false;
 }
 
+
 function isMoveValidAgainstCheck(legalSquares,startingSquareId,pieceColor,pieceType){
   let kingSquare=isWhiteTurn ? whiteKingSquare : blackKingSquare;
   let boardSquaresArrayCopy=deepCopyArray(boardSquaresArray);
