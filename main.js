@@ -261,6 +261,8 @@ function drop(ev) {
   ev.preventDefault();
   if (isGameOver) return;
   
+  console.log("DROP TRIGGERED"); // ADD THIS
+  
   // Remove visual feedback
   document.querySelectorAll('.piece').forEach(p => p.classList.remove('dragging'));
   document.querySelectorAll('.square').forEach(s => {
@@ -268,30 +270,36 @@ function drop(ev) {
   });
   
   let data = ev.dataTransfer.getData("text");
+  console.log("DATA:", data); // ADD THIS
   if (!data) return;
   
   let [pieceId, startingSquareId] = data.split("|");
   let legalSquaresJson = ev.dataTransfer.getData("application/json");
+  console.log("LEGAL SQUARES:", legalSquaresJson); // ADD THIS
   if (!legalSquaresJson || legalSquaresJson.length === 0) return;
   
   let legalSquares = JSON.parse(legalSquaresJson);
   
   const piece = document.getElementById(pieceId);
+  console.log("PIECE FOUND:", piece); // ADD THIS
   if (!piece) return;
   
   const pieceColor = piece.getAttribute("color");
   const pieceType = piece.classList[1];
   const destinationSquare = ev.currentTarget;
   let destinationSquareId = destinationSquare.getAttribute("data-square");
+  
+  console.log("DESTINATION:", destinationSquareId); // ADD THIS
+  console.log("IS LEGAL MOVE:", legalSquares.includes(destinationSquareId)); // ADD THIS
 
-  // ADD THIS VALIDATION:
   if (!legalSquares.includes(destinationSquareId)) {
-    return; // Don't execute the move if it's not legal
+    console.log("MOVE NOT LEGAL - RETURNING"); // ADD THIS
+    return;
   }
 
+  console.log("CALLING MAKEMOVE"); // ADD THIS
   makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, legalSquares);
 }
-
 // Add drag over visual feedback
 document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('dragover', function(e) {

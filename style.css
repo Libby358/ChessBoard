@@ -5,7 +5,7 @@ body {
     min-height: 100vh;
     margin: 0;
     padding: 20px;
-    background: antiquewhite;
+    background: rgb(126, 165, 126);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -436,4 +436,12 @@ body {
 
 .piece[draggable="true"]:active {
     cursor: grabbing;
+}
+
+.legal-move {
+  display: none !important;
+}
+
+.drag-over {
+  display: none !important; 
 }
