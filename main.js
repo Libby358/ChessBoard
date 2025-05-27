@@ -759,7 +759,7 @@ function isKingInCheck(squareId, pieceColor, boardSquaresArray) {
     ) return true;
   }
   
-  // Check for king attacks
+  // Check for king attacks - CHANGE THIS LINE: Add false parameter to disable castling
   legalSquares = getKingMoves(squareId, pieceColor, boardSquaresArray, false);
   for (let targetSquareId of legalSquares) {
     let pieceProperties = getPieceAtSquare(targetSquareId, boardSquaresArray);
@@ -1112,7 +1112,6 @@ function getKingMoves(startingSquareId, pieceColor, boardSquaresArray, includeCa
 
   return legalSquares;
 }
-
 
 function getPawnMoves(startingSquareId, pieceColor, boardSquaresArray) {
   let diagonalSquares = checkPawnDiagonalCaptures(startingSquareId, pieceColor, boardSquaresArray);
