@@ -5,6 +5,10 @@ let blackKingSquare="e8";
 const boardSquares = document.getElementsByClassName("square");
 const pieces = document.getElementsByClassName("piece");
 const piecesImages = document.getElementsByTagName("img");
+setupBoardSquares();
+setupPieces();
+
+
 
 function fillBoardSquaresArray() {
   const boardSquares = document.getElementsByClassName("square");
