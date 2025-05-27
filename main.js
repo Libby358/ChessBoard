@@ -718,7 +718,7 @@ function getPieceAtSquare(squareId, boardSquaresArray) {
 
 function isKingInCheck(squareId, pieceColor, boardSquaresArray) {
   // Check for rook/queen attacks
-  let legalSquares = getRookMoves(squareId, pieceColor, boardSquaresArray);
+  let legalSquares = getKingMoves(squareId, pieceColor, boardSquaresArray, false);
   for (let targetSquareId of legalSquares) {
     let pieceProperties = getPieceAtSquare(targetSquareId, boardSquaresArray);
     if (
@@ -1053,7 +1053,7 @@ function getQueenMoves(startingSquareId, pieceColor, boardSquaresArray) {
   return legalSquares;
 }
 
-function getKingMoves(startingSquareId, pieceColor, boardSquaresArray) {
+function getKingMoves(startingSquareId, pieceColor, boardSquaresArray, includeCastling = true) {
   const file = startingSquareId.charCodeAt(0) - 97;
   const rank = startingSquareId.charAt(1);
   const rankNumber = parseInt(rank);
@@ -1084,31 +1084,35 @@ function getKingMoves(startingSquareId, pieceColor, boardSquaresArray) {
     }
   });
 
-  // Add castling moves
-  if (pieceColor === "white" && !whiteKingMoved && startingSquareId === "e1") {
-    // King-side castling
-    if (!whiteRookH1Moved && canCastle(pieceColor, true, boardSquaresArray)) {
-      legalSquares.push("g1");
+  // Only add castling moves if includeCastling is true
+  if (includeCastling) {
+    // Add castling moves
+    if (pieceColor === "white" && !whiteKingMoved && startingSquareId === "e1") {
+      // King-side castling
+      if (!whiteRookH1Moved && canCastle(pieceColor, true, boardSquaresArray)) {
+        legalSquares.push("g1");
+      }
+      // Queen-side castling
+      if (!whiteRookA1Moved && canCastle(pieceColor, false, boardSquaresArray)) {
+        legalSquares.push("c1");
+      }
     }
-    // Queen-side castling
-    if (!whiteRookA1Moved && canCastle(pieceColor, false, boardSquaresArray)) {
-      legalSquares.push("c1");
-    }
-  }
-  
-  if (pieceColor === "black" && !blackKingMoved && startingSquareId === "e8") {
-    // King-side castling
-    if (!blackRookH8Moved && canCastle(pieceColor, true, boardSquaresArray)) {
-      legalSquares.push("g8");
-    }
-    // Queen-side castling
-    if (!blackRookA8Moved && canCastle(pieceColor, false, boardSquaresArray)) {
-      legalSquares.push("c8");
+    
+    if (pieceColor === "black" && !blackKingMoved && startingSquareId === "e8") {
+      // King-side castling
+      if (!blackRookH8Moved && canCastle(pieceColor, true, boardSquaresArray)) {
+        legalSquares.push("g8");
+      }
+      // Queen-side castling
+      if (!blackRookA8Moved && canCastle(pieceColor, false, boardSquaresArray)) {
+        legalSquares.push("c8");
+      }
     }
   }
 
   return legalSquares;
 }
+
 
 function getPawnMoves(startingSquareId, pieceColor, boardSquaresArray) {
   let diagonalSquares = checkPawnDiagonalCaptures(startingSquareId, pieceColor, boardSquaresArray);
