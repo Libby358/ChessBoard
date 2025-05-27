@@ -284,6 +284,11 @@ function drop(ev) {
   const destinationSquare = ev.currentTarget;
   let destinationSquareId = destinationSquare.getAttribute("data-square");
 
+  // ADD THIS VALIDATION:
+  if (!legalSquares.includes(destinationSquareId)) {
+    return; // Don't execute the move if it's not legal
+  }
+
   makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, legalSquares);
 }
 
@@ -325,7 +330,7 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
   }
 
   if (!legalSquares.includes(destinationSquareId)) {
-    return false;
+    return false; // Make sure this actually stops execution
   }
 
   // Save move to history
@@ -400,6 +405,8 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
   
   return true;
 }
+
+fillBoardSquaresArray();
 
 function handleSpecialMoves(startingSquareId, destinationSquareId, pieceType, pieceColor) {
   // Handle castling
