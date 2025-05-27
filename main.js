@@ -261,7 +261,7 @@ function drop(ev) {
   ev.preventDefault();
   if (isGameOver) return;
   
-  console.log("DROP TRIGGERED"); // ADD THIS
+  console.log("DROP TRIGGERED");
   
   // Remove visual feedback
   document.querySelectorAll('.piece').forEach(p => p.classList.remove('dragging'));
@@ -270,34 +270,47 @@ function drop(ev) {
   });
   
   let data = ev.dataTransfer.getData("text");
-  console.log("DATA:", data); // ADD THIS
+  console.log("DATA:", data);
   if (!data) return;
   
   let [pieceId, startingSquareId] = data.split("|");
   let legalSquaresJson = ev.dataTransfer.getData("application/json");
-  console.log("LEGAL SQUARES:", legalSquaresJson); // ADD THIS
+  console.log("LEGAL SQUARES JSON:", legalSquaresJson);
   if (!legalSquaresJson || legalSquaresJson.length === 0) return;
   
   let legalSquares = JSON.parse(legalSquaresJson);
+  console.log("PARSED LEGAL SQUARES:", legalSquares);
   
-  const piece = document.getElementById(pieceId);
-  console.log("PIECE FOUND:", piece); // ADD THIS
-  if (!piece) return;
+  // Find the piece by looking in the starting square, not by ID
+  const startingSquare = document.getElementById(startingSquareId);
+  if (!startingSquare) {
+    console.log("Starting square not found:", startingSquareId);
+    return;
+  }
+  
+  const piece = startingSquare.querySelector('.piece');
+  console.log("PIECE FOUND:", piece);
+  if (!piece) {
+    console.log("No piece found at starting square:", startingSquareId);
+    return;
+  }
   
   const pieceColor = piece.getAttribute("color");
-  const pieceType = piece.classList[1];
+  const pieceType = piece.classList[1]; // Get piece type from class list
   const destinationSquare = ev.currentTarget;
   let destinationSquareId = destinationSquare.getAttribute("data-square");
   
-  console.log("DESTINATION:", destinationSquareId); // ADD THIS
-  console.log("IS LEGAL MOVE:", legalSquares.includes(destinationSquareId)); // ADD THIS
+  console.log("PIECE COLOR:", pieceColor);
+  console.log("PIECE TYPE:", pieceType);
+  console.log("DESTINATION:", destinationSquareId);
+  console.log("IS LEGAL MOVE:", legalSquares.includes(destinationSquareId));
 
   if (!legalSquares.includes(destinationSquareId)) {
-    console.log("MOVE NOT LEGAL - RETURNING"); // ADD THIS
+    console.log("MOVE NOT LEGAL - RETURNING");
     return;
   }
 
-  console.log("CALLING MAKEMOVE"); // ADD THIS
+  console.log("CALLING MAKEMOVE");
   makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, legalSquares);
 }
 // Add drag over visual feedback
@@ -350,31 +363,38 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
     boardState: deepCopyArray(boardSquaresArray)
   });
 
-  // Handle special moves
+  // Handle special moves BEFORE moving the piece
   handleSpecialMoves(startingSquareId, destinationSquareId, pieceType, pieceColor);
 
-  // Execute the move - FIX THE PIECE ID LOOKUP
+  // Execute the move - FIXED: Get piece from starting square properly
   const startingSquare = document.getElementById(startingSquareId);
   const destinationSquare = document.getElementById(destinationSquareId);
-  const piece = startingSquare.querySelector('.piece'); // Get piece from square, not by ID
   
-  if (!piece || !destinationSquare) return false;
-  
-  // Clear destination square of pieces
-  let children = destinationSquare.children;
-  for (let i = children.length - 1; i >= 0; i--) {
-    if (children[i].classList.contains('piece')) {
-      destinationSquare.removeChild(children[i]);
-    }
+  if (!startingSquare || !destinationSquare) {
+    console.log("Could not find squares:", startingSquareId, destinationSquareId);
+    return false;
   }
   
-  // Move the piece
+  const piece = startingSquare.querySelector('.piece');
+  
+  if (!piece) {
+    console.log("No piece found at starting square:", startingSquareId);
+    return false;
+  }
+  
+  console.log("Moving piece from", startingSquareId, "to", destinationSquareId);
+  
+  // Clear destination square of any existing pieces
+  const existingPieces = destinationSquare.querySelectorAll('.piece');
+  existingPieces.forEach(p => p.remove());
+  
+  // Move the piece to destination
   destinationSquare.appendChild(piece);
   
-  // Update piece ID AFTER moving it
+  // Update piece ID to reflect new position
   piece.id = pieceType + destinationSquareId;
   
-  // Update king position
+  // Update king position tracking
   if (pieceType === "king") {
     if (pieceColor === "white") {
       whiteKingSquare = destinationSquareId;
@@ -393,29 +413,31 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
     if (startingSquareId === "h8") blackRookH8Moved = true;
   }
 
+  // Update board squares array
   updateBoardSquaresArray(startingSquareId, destinationSquareId, boardSquaresArray);
   
   // Check for pawn promotion
   if (pieceType === "pawn" && (destinationSquareId.charAt(1) === '8' || destinationSquareId.charAt(1) === '1')) {
     handlePawnPromotion(destinationSquareId, pieceColor);
-    return true;
+    return true; // Don't switch turns yet, promotion modal will handle it
   }
 
+  // Switch turns
   isWhiteTurn = !isWhiteTurn;
   updateTurnIndicator();
   
+  // Check for checkmate
   if (checkForCheckMate()) {
     return true;
   }
 
-  // Make computer move if it's computer mode
+  // Make computer move if it's computer mode and now black's turn
   if (gameMode === "computer" && !isWhiteTurn && !isGameOver) {
     setTimeout(makeComputerMove, 500);
   }
   
   return true;
 }
-
 
 function handleSpecialMoves(startingSquareId, destinationSquareId, pieceType, pieceColor) {
   // Handle castling
