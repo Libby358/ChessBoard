@@ -718,7 +718,7 @@ function getPieceAtSquare(squareId, boardSquaresArray) {
 
 function isKingInCheck(squareId, pieceColor, boardSquaresArray) {
   // Check for rook/queen attacks
-  legalSquares = getKingMoves(squareId, pieceColor, boardSquaresArray, false);
+  let legalSquares = getRookMoves(squareId, pieceColor, boardSquaresArray);
   for (let targetSquareId of legalSquares) {
     let pieceProperties = getPieceAtSquare(targetSquareId, boardSquaresArray);
     if (
@@ -760,7 +760,7 @@ function isKingInCheck(squareId, pieceColor, boardSquaresArray) {
   }
   
   // Check for king attacks
-  legalSquares = getKingMoves(squareId, pieceColor, boardSquaresArray);
+  legalSquares = getKingMoves(squareId, pieceColor, boardSquaresArray, false);
   for (let targetSquareId of legalSquares) {
     let pieceProperties = getPieceAtSquare(targetSquareId, boardSquaresArray);
     if (
