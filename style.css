@@ -438,3 +438,138 @@ body {
     cursor: grabbing;
 }
 
+@media (max-width: 768px) {
+  /* Prevent text selection and context menus on mobile */
+  .chessBoard, .piece, .square {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Increase touch targets */
+  .piece {
+    padding: 5px;
+    min-height: 44px; /* iOS recommended minimum touch target */
+    min-width: 44px;
+  }
+  
+  /* Better feedback for selected pieces */
+  .piece.selected {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 15px rgba(255, 215, 0, 1));
+    z-index: 10;
+    animation: selectedPulse 1.5s infinite alternate;
+  }
+  
+  .square.selected-square {
+    box-shadow: inset 0 0 0 4px #FFD700;
+    animation: selectedSquarePulse 1.5s infinite alternate;
+  }
+  
+  /* Enhanced legal move indicators for mobile */
+  .square.legal-move::after {
+    width: 30px;
+    height: 30px;
+    background-color: rgba(76, 175, 80, 0.8);
+    border: 2px solid #4CAF50;
+  }
+  
+  /* Better promotion modal for mobile */
+  .promotion-piece {
+    width: 70px;
+    height: 70px;
+    font-size: 40px;
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improved button sizes for mobile */
+  .btn, .select {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px 20px;
+    font-size: 16px; /* Prevents zoom on iOS */
+    touch-action: manipulation;
+  }
+  
+  /* Disable hover effects on mobile */
+  .piece:hover,
+  .square:hover,
+  .btn:hover,
+  .select:hover {
+    transform: none;
+    filter: none;
+  }
+}
+
+/* Animations for mobile feedback */
+@keyframes selectedPulse {
+  from {
+    filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.8));
+  }
+  to {
+    filter: drop-shadow(0 0 20px rgba(255, 215, 0, 1));
+  }
+}
+
+@keyframes selectedSquarePulse {
+  from {
+    box-shadow: inset 0 0 0 4px rgba(255, 215, 0, 0.8);
+  }
+  to {
+    box-shadow: inset 0 0 0 6px rgba(255, 215, 0, 1);
+  }
+}
+
+/* Larger chess board on mobile landscape */
+@media (max-width: 768px) and (orientation: landscape) {
+  .chessBoard {
+    width: 70vh;
+    height: 70vh;
+    max-width: 500px;
+    max-height: 500px;
+  }
+  
+  .game-container {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  
+  .game-controls {
+    flex-direction: column;
+    min-width: 200px;
+  }
+}
+
+/* Better viewport handling */
+@media (max-width: 480px) {
+  body {
+    padding: 10px;
+  }
+  
+  .game-container {
+    width: 100%;
+    padding: 15px;
+    gap: 15px;
+  }
+  
+  .chessBoard {
+    width: calc(100vw - 50px);
+    height: calc(100vw - 50px);
+    max-width: 350px;
+    max-height: 350px;
+  }
+  
+  .turn-indicator {
+    font-size: 18px;
+    padding: 10px 15px;
+  }
+  
+  .game-status {
+    font-size: 14px;
+  }
+}
