@@ -20,6 +20,12 @@ let isGameOver = false;
 let stockfish = null;
 let currentFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
+// Mobile-specific variables
+let selectedPiece = null;
+let selectedSquare = null;
+let legalMovesForSelectedPiece = [];
+let isMobile = false;
+
 // Unicode symbols for pieces
 const pieceSymbols = {
   white: {
@@ -39,6 +45,45 @@ const pieceSymbols = {
     pawn: '♟'
   }
 };
+
+// =============================================================================
+// MOBILE DETECTION AND SETUP
+// =============================================================================
+
+function detectMobile() {
+  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+  isMobile = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase()) ||
+            ('ontouchstart' in window) ||
+            (navigator.maxTouchPoints > 0);
+  
+  console.log('Mobile detected:', isMobile);
+  return isMobile;
+}
+
+function setupMobileEvents() {
+  if (!isMobile) return;
+  
+  // Disable context menu on long press
+  document.addEventListener('contextmenu', function(e) {
+    if (e.target.classList.contains('piece') || e.target.classList.contains('square')) {
+      e.preventDefault();
+    }
+  });
+  
+  // Prevent text selection
+  document.addEventListener('selectstart', function(e) {
+    if (e.target.classList.contains('piece') || e.target.classList.contains('square')) {
+      e.preventDefault();
+    }
+  });
+  
+  // Prevent default touch behaviors that might interfere
+  document.addEventListener('touchstart', function(e) {
+    if (e.target.classList.contains('piece') || e.target.classList.contains('square')) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+}
 
 // =============================================================================
 // STOCKFISH INTEGRATION
@@ -242,10 +287,12 @@ function updateFEN() {
 
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
+  detectMobile();
   setupBoardSquares();
   setupPieces();
   fillBoardSquaresArray();
   setupGameControls();
+  setupMobileEvents();
   updateTurnIndicator();
   updateFEN();
   initializeStockfish();
@@ -291,8 +338,16 @@ function setupBoardSquares() {
   
   for (let i = 0; i < boardSquares.length; i++) {
     let square = boardSquares[i];
-    square.addEventListener("dragover", allowDrop);
-    square.addEventListener("drop", drop);
+    
+    // Desktop events
+    if (!isMobile) {
+      square.addEventListener("dragover", allowDrop);
+      square.addEventListener("drop", drop);
+    }
+    
+    // Mobile/touch events
+    square.addEventListener("touchstart", handleSquareTouch, { passive: false });
+    square.addEventListener("click", handleSquareClick);
     
     // Set square ID from data-square attribute
     let squareId = square.getAttribute("data-square");
@@ -307,8 +362,16 @@ function setupPieces() {
   
   for (let i = 0; i < pieces.length; i++) {
     let piece = pieces[i];
-    piece.addEventListener("dragstart", drag);
-    piece.setAttribute("draggable", true);
+    
+    // Desktop events
+    if (!isMobile) {
+      piece.addEventListener("dragstart", drag);
+      piece.setAttribute("draggable", true);
+    }
+    
+    // Mobile/touch events
+    piece.addEventListener("touchstart", handlePieceTouch, { passive: false });
+    piece.addEventListener("click", handlePieceClick);
     
     // Set piece ID based on type and square
     let pieceType = piece.classList[1];
@@ -350,10 +413,190 @@ function setupGameControls() {
 }
 
 // =============================================================================
+// MOBILE TOUCH HANDLERS
+// =============================================================================
+
+function handlePieceTouch(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  if (isGameOver) return;
+  
+  const piece = e.target;
+  const pieceColor = piece.getAttribute("color");
+  const square = piece.parentElement;
+  const squareId = square.getAttribute("data-square");
+  
+  // Prevent interaction if it's computer's turn
+  if (gameMode === "computer" && !isWhiteTurn) return;
+  
+  // Only allow selecting pieces of the current player's color
+  if ((isWhiteTurn && pieceColor !== "white") || (!isWhiteTurn && pieceColor !== "black")) {
+    return;
+  }
+  
+  selectPiece(piece, squareId);
+}
+
+function handlePieceClick(e) {
+  if (!isMobile) return; // Only handle clicks on mobile
+  
+  e.preventDefault();
+  e.stopPropagation();
+  
+  if (isGameOver) return;
+  
+  const piece = e.target;
+  const pieceColor = piece.getAttribute("color");
+  const square = piece.parentElement;
+  const squareId = square.getAttribute("data-square");
+  
+  // Prevent interaction if it's computer's turn
+  if (gameMode === "computer" && !isWhiteTurn) return;
+  
+  // Only allow selecting pieces of the current player's color
+  if ((isWhiteTurn && pieceColor !== "white") || (!isWhiteTurn && pieceColor !== "black")) {
+    return;
+  }
+  
+  selectPiece(piece, squareId);
+}
+
+function handleSquareTouch(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  if (isGameOver) return;
+  
+  const square = e.target;
+  const squareId = square.getAttribute("data-square");
+  
+  handleSquareSelection(squareId);
+}
+
+function handleSquareClick(e) {
+  if (!isMobile) return; // Only handle clicks on mobile
+  
+  e.preventDefault();
+  e.stopPropagation();
+  
+  if (isGameOver) return;
+  
+  const square = e.target;
+  const squareId = square.getAttribute("data-square");
+  
+  handleSquareSelection(squareId);
+}
+
+function selectPiece(piece, squareId) {
+  // Clear previous selection
+  clearSelection();
+  
+  const pieceColor = piece.getAttribute("color");
+  const pieceType = piece.classList[1];
+  
+  // Set new selection
+  selectedPiece = piece;
+  selectedSquare = squareId;
+  
+  // Add visual feedback
+  piece.classList.add("selected");
+  piece.parentElement.classList.add("selected-square");
+  
+  // Get legal moves
+  const pieceObject = { 
+    pieceColor: pieceColor, 
+    pieceType: pieceType, 
+    pieceId: piece.id 
+  };
+  
+  legalMovesForSelectedPiece = getPossibleMoves(squareId, pieceObject, boardSquaresArray);
+  legalMovesForSelectedPiece = isMoveValidAgainstCheck(legalMovesForSelectedPiece, squareId, pieceColor, pieceType);
+  
+  // Highlight legal moves
+  legalMovesForSelectedPiece.forEach(moveSquareId => {
+    const moveSquare = document.getElementById(moveSquareId);
+    if (moveSquare) {
+      moveSquare.classList.add("legal-move");
+    }
+  });
+  
+  console.log(`Selected ${pieceType} at ${squareId}, legal moves:`, legalMovesForSelectedPiece);
+}
+
+function handleSquareSelection(squareId) {
+  if (!selectedPiece || !selectedSquare) return;
+  
+  // Check if it's a legal move
+  if (legalMovesForSelectedPiece.includes(squareId)) {
+    const pieceColor = selectedPiece.getAttribute("color");
+    const pieceType = selectedPiece.classList[1];
+    
+    console.log(`Moving ${pieceType} from ${selectedSquare} to ${squareId}`);
+    
+    // Make the move
+    makeMove(selectedSquare, squareId, pieceColor, pieceType, legalMovesForSelectedPiece);
+    
+    // Clear selection
+    clearSelection();
+  } else if (squareId === selectedSquare) {
+    // Clicking on same square deselects
+    clearSelection();
+  } else {
+    // Check if clicking on another piece of same color
+    const clickedSquare = document.getElementById(squareId);
+    const clickedPiece = clickedSquare.querySelector('.piece');
+    
+    if (clickedPiece) {
+      const clickedPieceColor = clickedPiece.getAttribute("color");
+      const currentPlayerColor = isWhiteTurn ? "white" : "black";
+      
+      if (clickedPieceColor === currentPlayerColor) {
+        // Select the new piece
+        selectPiece(clickedPiece, squareId);
+      } else {
+        // Invalid move - clear selection
+        clearSelection();
+      }
+    } else {
+      // Invalid move to empty square - clear selection
+      clearSelection();
+    }
+  }
+}
+
+function clearSelection() {
+  // Remove visual feedback
+  if (selectedPiece) {
+    selectedPiece.classList.remove("selected");
+  }
+  
+  if (selectedSquare) {
+    const square = document.getElementById(selectedSquare);
+    if (square) {
+      square.classList.remove("selected-square");
+    }
+  }
+  
+  // Clear legal move highlights
+  document.querySelectorAll('.square').forEach(square => {
+    square.classList.remove('legal-move');
+  });
+  
+  // Reset selection state
+  selectedPiece = null;
+  selectedSquare = null;
+  legalMovesForSelectedPiece = [];
+}
+
+// =============================================================================
 // GAME CONTROL FUNCTIONS
 // =============================================================================
 
 function startNewGame() {
+  // Clear selection
+  clearSelection();
+  
   // Reset game state
   isWhiteTurn = true;
   whiteKingSquare = "e1";
@@ -408,7 +651,7 @@ function updateTurnIndicator() {
 }
 
 // =============================================================================
-// DRAG AND DROP HANDLERS
+// DRAG AND DROP HANDLERS (DESKTOP ONLY)
 // =============================================================================
 
 function allowDrop(ev) {
@@ -416,7 +659,7 @@ function allowDrop(ev) {
 }
 
 function drag(ev) {
-  if (isGameOver) {
+  if (isGameOver || isMobile) {
     ev.preventDefault();
     return;
   }
@@ -466,7 +709,7 @@ function drag(ev) {
 
 function drop(ev) {
   ev.preventDefault();
-  if (isGameOver) return;
+  if (isGameOver || isMobile) return;
   
   console.log("DROP TRIGGERED");
   
@@ -521,27 +764,29 @@ function drop(ev) {
   makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, legalSquares);
 }
 
-// Add drag over visual feedback
+// Add drag over visual feedback (desktop only)
 document.addEventListener('DOMContentLoaded', function() {
-  document.addEventListener('dragover', function(e) {
-    if (e.target.classList.contains('square')) {
-      e.target.classList.add('drag-over');
-    }
-  });
-  
-  document.addEventListener('dragleave', function(e) {
-    if (e.target.classList.contains('square')) {
-      e.target.classList.remove('drag-over');
-    }
-  });
-  
-  document.addEventListener('dragend', function(e) {
-    // Clean up all visual feedback
-    document.querySelectorAll('.piece').forEach(p => p.classList.remove('dragging'));
-    document.querySelectorAll('.square').forEach(s => {
-      s.classList.remove('legal-move', 'drag-over');
+  if (!isMobile) {
+    document.addEventListener('dragover', function(e) {
+      if (e.target.classList.contains('square')) {
+        e.target.classList.add('drag-over');
+      }
     });
-  });
+    
+    document.addEventListener('dragleave', function(e) {
+      if (e.target.classList.contains('square')) {
+        e.target.classList.remove('drag-over');
+      }
+    });
+    
+    document.addEventListener('dragend', function(e) {
+      // Clean up all visual feedback
+      document.querySelectorAll('.piece').forEach(p => p.classList.remove('dragging'));
+      document.querySelectorAll('.square').forEach(s => {
+        s.classList.remove('legal-move', 'drag-over');
+      });
+    });
+  }
 });
 
 // =============================================================================
@@ -550,6 +795,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, legalSquares = null) {
   if (isGameOver) return false;
+  
+  // Clear selection on mobile
+  if (isMobile) {
+    clearSelection();
+  }
   
   // Get legal squares if not provided
   if (!legalSquares) {
