@@ -1,5 +1,5 @@
 // =============================================================================
-// CHESS GAME - GLOBAL VARIABLES
+// CHESS GAME WITH STOCKFISH INTEGRATION - GLOBAL VARIABLES
 // =============================================================================
 
 let boardSquaresArray = [];
@@ -17,6 +17,8 @@ let blackRookH8Moved = false;
 let blackRookA8Moved = false;
 let enPassantSquare = null;
 let isGameOver = false;
+let stockfish = null;
+let currentFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 // Unicode symbols for pieces
 const pieceSymbols = {
@@ -39,6 +41,202 @@ const pieceSymbols = {
 };
 
 // =============================================================================
+// STOCKFISH INTEGRATION
+// =============================================================================
+
+async function initializeStockfish() {
+  try {
+    // Load Stockfish from CDN
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js';
+    script.onload = () => {
+      stockfish = new Worker('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js');
+      
+      stockfish.onmessage = function(event) {
+        const message = event.data;
+        console.log('Stockfish:', message);
+        
+        if (message.includes('bestmove')) {
+          const bestMove = message.split(' ')[1];
+          if (bestMove && bestMove !== '(none)') {
+            executeStockfishMove(bestMove);
+          }
+        }
+      };
+      
+      // Initialize Stockfish
+      stockfish.postMessage('uci');
+      console.log('Stockfish initialized successfully');
+    };
+    
+    script.onerror = () => {
+      console.error('Failed to load Stockfish, falling back to basic AI');
+    };
+    
+    document.head.appendChild(script);
+  } catch (error) {
+    console.error('Error initializing Stockfish:', error);
+  }
+}
+
+function getStockfishMove() {
+  if (!stockfish) {
+    console.log('Stockfish not available, using basic AI');
+    makeBasicComputerMove();
+    return;
+  }
+  
+  // Set skill level based on difficulty
+  const skillLevels = {
+    1: 1,   // Easy
+    2: 10,  // Medium  
+    3: 20   // Hard (max)
+  };
+  
+  stockfish.postMessage(`setoption name Skill Level value ${skillLevels[difficulty]}`);
+  stockfish.postMessage(`position fen ${currentFEN}`);
+  stockfish.postMessage('go movetime 1000'); // Think for 1 second
+}
+
+function executeStockfishMove(move) {
+  // Convert Stockfish move format (e.g., "e2e4") to our format
+  const from = move.substring(0, 2);
+  const to = move.substring(2, 4);
+  const promotion = move.length > 4 ? move.substring(4) : null;
+  
+  console.log(`Stockfish suggests: ${from} to ${to}${promotion ? ' promote to ' + promotion : ''}`);
+  
+  // Find the piece at the starting position
+  const startSquare = document.getElementById(from);
+  if (!startSquare) {
+    console.error('Invalid starting square:', from);
+    return;
+  }
+  
+  const piece = startSquare.querySelector('.piece');
+  if (!piece) {
+    console.error('No piece found at starting square:', from);
+    return;
+  }
+  
+  const pieceColor = piece.getAttribute("color");
+  const pieceType = piece.classList[1];
+  
+  // Get legal moves for validation
+  const pieceObject = { 
+    pieceColor: pieceColor, 
+    pieceType: pieceType, 
+    pieceId: piece.id 
+  };
+  
+  let legalSquares = getPossibleMoves(from, pieceObject, boardSquaresArray);
+  legalSquares = isMoveValidAgainstCheck(legalSquares, from, pieceColor, pieceType);
+  
+  if (legalSquares.includes(to)) {
+    // Handle promotion
+    if (promotion) {
+      // Make the move first
+      makeMove(from, to, pieceColor, pieceType, legalSquares);
+      // Then handle promotion
+      const promotionPieces = {
+        'q': 'queen',
+        'r': 'rook', 
+        'b': 'bishop',
+        'n': 'knight'
+      };
+      promotePawn(to, promotionPieces[promotion] || 'queen', pieceColor);
+      
+      // Continue game after promotion
+      isWhiteTurn = !isWhiteTurn;
+      updateTurnIndicator();
+      updateFEN();
+      checkForCheckMate();
+    } else {
+      makeMove(from, to, pieceColor, pieceType, legalSquares);
+    }
+  } else {
+    console.error('Stockfish suggested illegal move:', move);
+    makeBasicComputerMove(); // Fallback to basic AI
+  }
+}
+
+// =============================================================================
+// FEN NOTATION HANDLING
+// =============================================================================
+
+function updateFEN() {
+  // Convert current board state to FEN notation
+  let fen = '';
+  
+  // Board position
+  for (let rank = 8; rank >= 1; rank--) {
+    let emptyCount = 0;
+    let rankString = '';
+    
+    for (let file = 0; file < 8; file++) {
+      const square = String.fromCharCode(97 + file) + rank;
+      const piece = getPieceAtSquare(square, boardSquaresArray);
+      
+      if (piece.pieceColor === 'blank') {
+        emptyCount++;
+      } else {
+        if (emptyCount > 0) {
+          rankString += emptyCount;
+          emptyCount = 0;
+        }
+        
+        let pieceChar = '';
+        switch (piece.pieceType) {
+          case 'pawn': pieceChar = 'p'; break;
+          case 'rook': pieceChar = 'r'; break;
+          case 'knight': pieceChar = 'n'; break;
+          case 'bishop': pieceChar = 'b'; break;
+          case 'queen': pieceChar = 'q'; break;
+          case 'king': pieceChar = 'k'; break;
+        }
+        
+        if (piece.pieceColor === 'white') {
+          pieceChar = pieceChar.toUpperCase();
+        }
+        
+        rankString += pieceChar;
+      }
+    }
+    
+    if (emptyCount > 0) {
+      rankString += emptyCount;
+    }
+    
+    fen += rankString;
+    if (rank > 1) fen += '/';
+  }
+  
+  // Active color
+  fen += isWhiteTurn ? ' w ' : ' b ';
+  
+  // Castling availability
+  let castling = '';
+  if (!whiteKingMoved) {
+    if (!whiteRookH1Moved) castling += 'K';
+    if (!whiteRookA1Moved) castling += 'Q';
+  }
+  if (!blackKingMoved) {
+    if (!blackRookH8Moved) castling += 'k';
+    if (!blackRookA8Moved) castling += 'q';
+  }
+  fen += castling || '-';
+  
+  // En passant square
+  fen += ' ' + (enPassantSquare || '-');
+  
+  // Halfmove and fullmove counters (simplified)
+  fen += ' 0 ' + Math.ceil(gameHistory.length / 2);
+  
+  currentFEN = fen;
+  console.log('Current FEN:', currentFEN);
+}
+
+// =============================================================================
 // INITIALIZATION
 // =============================================================================
 
@@ -49,6 +247,8 @@ document.addEventListener('DOMContentLoaded', function() {
   fillBoardSquaresArray();
   setupGameControls();
   updateTurnIndicator();
+  updateFEN();
+  initializeStockfish();
 });
 
 function fillBoardSquaresArray() {
@@ -131,7 +331,13 @@ function setupGameControls() {
     gameModeSelect.addEventListener('change', (e) => {
       gameMode = e.target.value;
       if (gameMode === "computer" && !isWhiteTurn) {
-        setTimeout(makeComputerMove, 500);
+        setTimeout(() => {
+          if (stockfish) {
+            getStockfishMove();
+          } else {
+            makeBasicComputerMove();
+          }
+        }, 500);
       }
     });
   }
@@ -161,6 +367,7 @@ function startNewGame() {
   blackRookA8Moved = false;
   enPassantSquare = null;
   isGameOver = false;
+  currentFEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   
   // Reset board to initial position
   location.reload(); // Simple reset - reloads the page
@@ -313,6 +520,7 @@ function drop(ev) {
   console.log("CALLING MAKEMOVE");
   makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, legalSquares);
 }
+
 // Add drag over visual feedback
 document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('dragover', function(e) {
@@ -416,6 +624,9 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
   // Update board squares array
   updateBoardSquaresArray(startingSquareId, destinationSquareId, boardSquaresArray);
   
+  // Update FEN after move
+  updateFEN();
+  
   // Check for pawn promotion
   if (pieceType === "pawn" && (destinationSquareId.charAt(1) === '8' || destinationSquareId.charAt(1) === '1')) {
     handlePawnPromotion(destinationSquareId, pieceColor);
@@ -425,6 +636,7 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
   // Switch turns
   isWhiteTurn = !isWhiteTurn;
   updateTurnIndicator();
+  updateFEN();
   
   // Check for checkmate
   if (checkForCheckMate()) {
@@ -433,7 +645,13 @@ function makeMove(startingSquareId, destinationSquareId, pieceColor, pieceType, 
 
   // Make computer move if it's computer mode and now black's turn
   if (gameMode === "computer" && !isWhiteTurn && !isGameOver) {
-    setTimeout(makeComputerMove, 500);
+    setTimeout(() => {
+      if (stockfish) {
+        getStockfishMove();
+      } else {
+        makeBasicComputerMove();
+      }
+    }, 500);
   }
   
   return true;
@@ -551,11 +769,18 @@ function handlePawnPromotion(squareId, color) {
       // Continue game after promotion
       isWhiteTurn = !isWhiteTurn;
       updateTurnIndicator();
+      updateFEN();
       checkForCheckMate();
       
       // Make computer move if needed
       if (gameMode === "computer" && !isWhiteTurn && !isGameOver) {
-        setTimeout(makeComputerMove, 500);
+        setTimeout(() => {
+          if (stockfish) {
+            getStockfishMove();
+          } else {
+            makeBasicComputerMove();
+          }
+        }, 500);
       }
     };
   });
@@ -592,10 +817,10 @@ function promotePawn(squareId, pieceType, color) {
 }
 
 // =============================================================================
-// COMPUTER AI
+// BASIC COMPUTER AI (FALLBACK)
 // =============================================================================
 
-function makeComputerMove() {
+function makeBasicComputerMove() {
   if (isWhiteTurn || isGameOver) return;
   
   const allMoves = getAllPossibleMovesWithDetails(boardSquaresArray, "black");
@@ -610,8 +835,8 @@ function makeComputerMove() {
     case 2: // Medium - Prefer captures and checks
       bestMove = getBestMoveSimple(allMoves);
       break;
-    case 3: // Hard - Minimax with evaluation
-      bestMove = getBestMoveMinimax(allMoves, 3);
+    case 3: // Hard - Basic evaluation
+      bestMove = getBestMoveEvaluated(allMoves);
       break;
     default:
       bestMove = allMoves[Math.floor(Math.random() * allMoves.length)];
@@ -647,16 +872,16 @@ function getBestMoveSimple(moves) {
   return moves[Math.floor(Math.random() * moves.length)];
 }
 
-function getBestMoveMinimax(moves, depth) {
+function getBestMoveEvaluated(moves) {
   let bestMove = moves[0];
   let bestScore = -Infinity;
   
-  for (let move of moves.slice(0, Math.min(moves.length, 20))) { // Limit moves for performance
+  for (let move of moves.slice(0, Math.min(moves.length, 15))) { // Limit moves for performance
     const tempBoard = deepCopyArray(boardSquaresArray);
     updateBoardSquaresArray(move.from, move.to, tempBoard);
     
-    const score = minimax(tempBoard, depth - 1, true, -Infinity, Infinity);
-    if (score > bestScore) {
+    const score = evaluatePosition(tempBoard);
+    if (score < bestScore) { // Black wants negative scores
       bestScore = score;
       bestMove = move;
     }
@@ -665,23 +890,55 @@ function getBestMoveMinimax(moves, depth) {
   return bestMove;
 }
 
-function minimax(board, depth, isMaximizing, alpha, beta) {
-  if (depth === 0) {
-    return evaluatePosition(board);
-  }
+function evaluatePosition(board) {
+  const pieceValues = {
+    pawn: 1,
+    knight: 3,
+    bishop: 3,
+    rook: 5,
+    queen: 9,
+    king: 0
+  };
   
-  const color = isMaximizing ? "white" : "black";
-  const moves = getAllPossibleMovesWithDetails(board, color);
+  let score = 0;
   
-  if (moves.length === 0) {
-    // Check if king would be in check on d and c squares
-    if (isKingInCheck("d" + rank, color, boardSquaresArray) || 
-        isKingInCheck("c" + rank, color, boardSquaresArray)) {
-      return false;
+  for (let square of board) {
+    if (square.pieceColor === "white") {
+      score += pieceValues[square.pieceType] || 0;
+    } else if (square.pieceColor === "black") {
+      score -= pieceValues[square.pieceType] || 0;
     }
   }
   
-  return true;
+  return score;
+}
+
+function getAllPossibleMovesWithDetails(squaresArray, color) {
+  const moves = [];
+  
+  for (let square of squaresArray) {
+    if (square.pieceColor === color) {
+      const pieceObject = {
+        pieceColor: square.pieceColor,
+        pieceType: square.pieceType,
+        pieceId: square.pieceId
+      };
+      
+      let legalSquares = getPossibleMoves(square.squareId, pieceObject, squaresArray);
+      legalSquares = isMoveValidAgainstCheck(legalSquares, square.squareId, square.pieceColor, square.pieceType);
+      
+      for (let targetSquare of legalSquares) {
+        moves.push({
+          from: square.squareId,
+          to: targetSquare,
+          pieceType: square.pieceType,
+          legalSquares: legalSquares
+        });
+      }
+    }
+  }
+  
+  return moves;
 }
 
 // =============================================================================
@@ -781,7 +1038,7 @@ function isKingInCheck(squareId, pieceColor, boardSquaresArray) {
     ) return true;
   }
   
-  // Check for king attacks - CHANGE THIS LINE: Add false parameter to disable castling
+  // Check for king attacks - disable castling for check detection
   legalSquares = getKingMoves(squareId, pieceColor, boardSquaresArray, false);
   for (let targetSquareId of legalSquares) {
     let pieceProperties = getPieceAtSquare(targetSquareId, boardSquaresArray);
@@ -867,100 +1124,6 @@ function showAlert(message) {
   setTimeout(function () {
     alert.style.display = "none";
   }, 5000);
-}
-
-// The minimax function that was mixed in - this should be separate
-function minimax(board, depth, isMaximizing, alpha, beta) {
-  if (depth === 0) {
-    return evaluatePosition(board);
-  }
-  
-  const color = isMaximizing ? "white" : "black";
-  const moves = getAllPossibleMovesWithDetails(board, color);
-  
-  if (moves.length === 0) {
-    // It's checkmate or stalemate
-    const kingSquare = color === "white" ? whiteKingSquare : blackKingSquare;
-    if (isKingInCheck(kingSquare, color, board)) {
-      return isMaximizing ? -10000 : 10000; // Checkmate
-    }
-    return 0; // Stalemate
-  }
-  
-  if (isMaximizing) {
-    let maxEval = -Infinity;
-    for (let move of moves.slice(0, 10)) { // Limit for performance
-      const tempBoard = deepCopyArray(board);
-      updateBoardSquaresArray(move.from, move.to, tempBoard);
-      const eval = minimax(tempBoard, depth - 1, false, alpha, beta);
-      maxEval = Math.max(maxEval, eval);
-      alpha = Math.max(alpha, eval);
-      if (beta <= alpha) break; // Alpha-beta pruning
-    }
-    return maxEval;
-  } else {
-    let minEval = Infinity;
-    for (let move of moves.slice(0, 10)) { // Limit for performance
-      const tempBoard = deepCopyArray(board);
-      updateBoardSquaresArray(move.from, move.to, tempBoard);
-      const eval = minimax(tempBoard, depth - 1, true, alpha, beta);
-      minEval = Math.min(minEval, eval);
-      beta = Math.min(beta, eval);
-      if (beta <= alpha) break; // Alpha-beta pruning
-    }
-    return minEval;
-  }
-}
-
-function evaluatePosition(board) {
-  const pieceValues = {
-    pawn: 1,
-    knight: 3,
-    bishop: 3,
-    rook: 5,
-    queen: 9,
-    king: 0
-  };
-  
-  let score = 0;
-  
-  for (let square of board) {
-    if (square.pieceColor === "white") {
-      score += pieceValues[square.pieceType] || 0;
-    } else if (square.pieceColor === "black") {
-      score -= pieceValues[square.pieceType] || 0;
-    }
-  }
-  
-  return score;
-}
-
-function getAllPossibleMovesWithDetails(squaresArray, color) {
-  const moves = [];
-  
-  for (let square of squaresArray) {
-    if (square.pieceColor === color) {
-      const pieceObject = {
-        pieceColor: square.pieceColor,
-        pieceType: square.pieceType,
-        pieceId: square.pieceId
-      };
-      
-      let legalSquares = getPossibleMoves(square.squareId, pieceObject, squaresArray);
-      legalSquares = isMoveValidAgainstCheck(legalSquares, square.squareId, square.pieceColor, square.pieceType);
-      
-      for (let targetSquare of legalSquares) {
-        moves.push({
-          from: square.squareId,
-          to: targetSquare,
-          pieceType: square.pieceType,
-          legalSquares: legalSquares
-        });
-      }
-    }
-  }
-  
-  return moves;
 }
 
 // =============================================================================
